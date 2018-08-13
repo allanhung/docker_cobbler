@@ -1,0 +1,131 @@
+--- a/cobbler/cobblerd.py	2016-11-16 19:09:20.000000000 +0000
++++ b/cobbler/cobblerd.py	2017-04-15 18:17:32.961848689 +0000
+@@ -56,7 +56,7 @@
+     os.write(fd,binascii.hexlify(data))
+     os.close(fd)
+ 
+-    http_user = "apache"
++    http_user = "nginx"
+     if utils.check_dist() in [ "debian", "ubuntu" ]:
+         http_user = "www-data"
+     elif utils.check_dist() in [ "suse", "opensuse" ]:
+--- a/cobbler/action_reposync.py	2016-11-16 19:09:20.000000000 +0000
++++ b/cobbler/action_reposync.py	2017-04-15 18:17:32.962848708 +0000
+@@ -617,7 +617,7 @@
+         a safeguard.
+         """
+         # all_path = os.path.join(repo_path, "*")
+-        owner = "root:apache"
++        owner = "root:nginx"
+         if os.path.exists("/etc/SuSE-release"):
+             owner = "root:www"
+         elif os.path.exists("/etc/debian_version"):
+--- a/cobbler/action_check.py	2016-11-16 19:09:20.000000000 +0000
++++ b/cobbler/action_check.py	2017-04-15 18:17:32.964848746 +0000
+@@ -247,7 +247,7 @@
+ 
+    def check_httpd(self,status):
+        """
+-       Check if Apache is installed.
++       Check if Nginx is installed.
+        """
+        if self.checked_dist in (
+            "redhat",
+@@ -257,13 +257,13 @@
+            "centos linux",
+            "scientific linux"
+        ):
+-           rc = utils.subprocess_get(self.logger,"httpd -v")
++           rc = utils.subprocess_get(self.logger,"nginx -v")
+        elif self.checked_dist == "suse" or self.checked_dist == "opensuse":
+-           rc = utils.subprocess_get(self.logger,"httpd2 -v")
++           rc = utils.subprocess_get(self.logger,"nginx -v")
+        else:
+-           rc = utils.subprocess_get(self.logger,"apache2 -v")
++           rc = utils.subprocess_get(self.logger,"nginx -v")
+        if rc.find("Server") == -1:
+-           status.append("Apache (httpd) is not installed and/or in path")
++           status.append("Nginx is not installed and/or in path")
+ 
+ 
+    def check_dhcpd_bin(self,status):
+--- a/cobbler/cli.py	2016-11-16 19:09:20.000000000 +0000
++++ b/cobbler/cli.py	2017-04-15 18:17:32.966848784 +0000
+@@ -250,7 +250,7 @@
+         try:
+             s.ping()
+         except:
+-            print >> sys.stderr, "httpd does not appear to be running and proxying cobbler, or SELinux is in the way. Original traceback:"
++            print >> sys.stderr, "nginx does not appear to be running and proxying cobbler, or SELinux is in the way. Original traceback:"
+             traceback.print_exc()
+             sys.exit(411)
+ 
+--- a/cobbler/remote.py	2016-11-16 19:09:20.000000000 +0000
++++ b/cobbler/remote.py	2017-04-15 18:17:32.968848822 +0000
+@@ -2124,7 +2124,7 @@
+ 
+    rc1 = utils.subprocess_call(None,"/sbin/service cobblerd restart",shell=False)
+    assert rc1 == 0
+-   rc2 = utils.subprocess.call(None,"/sbin/service httpd restart",shell=False)
++   rc2 = utils.subprocess.call(None,"/sbin/service nginx restart",shell=False)
+    assert rc2 == 0
+    time.sleep(5)
+    
+--- a/setup.py	2016-11-16 19:09:20.000000000 +0000
++++ b/setup.py	2017-04-15 18:17:33.735863376 +0000
+@@ -365,8 +365,8 @@
+         try:
+             self.change_owner(path, http_user)
+         except KeyError, e:
+-            # building RPMs in a mock chroot, user 'apache' won't exist
+-            log.warn("Error in 'chown apache %s': %s" % (path,e))
++            # building RPMs in a mock chroot, user 'nginx' won't exist
++            log.warn("Error in 'chown nginx %s': %s" % (path,e))
+         if not os.path.abspath(libpath):
+             # The next line only works for absolute libpath
+             raise Exception("libpath is not absolute.")
+@@ -374,7 +374,7 @@
+         try:
+             self.change_owner(path, http_user)
+         except KeyError, e:
+-            log.warn("Error in 'chown apache %s': %s" % (path,e))
++            log.warn("Error in 'chown nginx %s': %s" % (path,e))
+ 
+ 
+ #####################################################################
+@@ -525,7 +525,7 @@
+     statepath   = "/tmp/cobbler_settings/devinstall"
+ 
+     if os.path.exists("/etc/SuSE-release"):
+-        webconfig  = "/etc/apache2/conf.d"
++        webconfig  = "/etc/nginx/conf.d"
+         webroot     = "/srv/www/"
+         http_user   = "wwwrun"
+         defaultpath = "/etc/sysconfig/"
+@@ -533,14 +533,14 @@
+         if os.path.exists("/etc/apache2/conf-available"):
+             webconfig = "/etc/apache2/conf-available"
+         else:
+-            webconfig = "/etc/apache2/conf.d"
++            webconfig = "/etc/nginx/conf.d"
+         webroot = "/srv/www/"
+         http_user = "www-data"
+         defaultpath = "/etc/default/"
+     else:
+-        webconfig  = "/etc/httpd/conf.d"
++        webconfig  = "/etc/nginx/conf.d"
+         webroot     = "/var/www/"
+-        http_user   = "apache"
++        http_user   = "nginx"
+         defaultpath = "/etc/sysconfig/"
+ 
+     webcontent = webroot + "cobbler_webui_content/"
+@@ -704,7 +704,7 @@
+             # logfiles
+             ("%scobbler/kicklog" % logpath,             []),
+             ("%scobbler/syslog" % logpath,              []),
+-            ("%shttpd/cobbler" % logpath,               []),
++            ("%snginx/cobbler" % logpath,               []),
+             ("%scobbler/anamon" % logpath,              []),
+             ("%skoan" % logpath,                        []),
+             ("%scobbler/tasks" % logpath,               []),

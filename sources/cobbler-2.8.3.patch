@@ -1,0 +1,103 @@
+--- a/cobbler.spec	2018-05-28 12:40:59.000000000 +0000
++++ b/cobbler.spec	2018-08-13 05:53:03.432235007 +0000
+@@ -16,6 +16,10 @@
+ URL:            http://cobbler.github.io/
+ License:        GPLv2+
+ Source0:        https://github.com/cobbler/cobbler/archive/v%{version}.tar.gz#/%{name}-%{version}.tar.gz
++Source1:        cobbler-nginx.conf
++Source2:        cobbler-svc.ini
++Source3:        cobbler-web.ini
++Patch0:         cobbler-nginx-%{version}.patch
+ 
+ BuildRequires: git
+ BuildRequires: python2-devel
+@@ -29,7 +33,11 @@
+ BuildRequires: python-setuptools
+ %endif
+ 
+-Requires: httpd
++Requires: nginx
++Requires: uwsgi-plugin-python
++Requires: httpd-tools
++Requires: dhcp
++Requires: pykickstart
+ Requires: tftp-server
+ Requires: createrepo
+ Requires: rsync
+@@ -41,7 +49,6 @@
+ Requires: python2-urlgrabber
+ Requires: python2-pyyaml
+ %else
+-Requires: mod_wsgi
+ Requires: python-cheetah
+ Requires: python-netaddr
+ Requires: python-simplejson
+@@ -125,10 +132,10 @@
+ %py2_build
+ 
+ %install
+-%py2_install
++%{__python2} setup.py install --skip-build --root=$RPM_BUILD_ROOT
+ 
+ # cobbler
+-rm $RPM_BUILD_ROOT%{_sysconfdir}/cobbler/cobbler.conf
++rm $RPM_BUILD_ROOT%{_sysconfdir}/nginx/conf.d/cobbler.conf
+ 
+ mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/logrotate.d
+ mv $RPM_BUILD_ROOT%{_sysconfdir}/cobbler/cobblerd_rotate $RPM_BUILD_ROOT%{_sysconfdir}/logrotate.d/cobblerd
+@@ -151,6 +158,11 @@
+ 
+ # cobbler-web
+ rm $RPM_BUILD_ROOT%{_sysconfdir}/cobbler/cobbler_web.conf
++rm $RPM_BUILD_ROOT%{_sysconfdir}/nginx/conf.d/cobbler_web.conf
++install -p -m 0644 %{SOURCE1} $RPM_BUILD_ROOT%{_sysconfdir}/nginx/conf.d/cobbler.conf
++mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/uwsgi.d
++install -p -m 0644 %{SOURCE2} $RPM_BUILD_ROOT%{_sysconfdir}/uwsgi.d/cobbler-svc.ini
++install -p -m 0644 %{SOURCE3} $RPM_BUILD_ROOT%{_sysconfdir}/uwsgi.d/cobbler-web.ini
+ 
+ # koan
+ mkdir -p $RPM_BUILD_ROOT/var/spool/koan
+@@ -180,7 +192,7 @@
+ if (( $1 == 1 )); then
+     /sbin/chkconfig --add cobblerd > /dev/null 2>&1
+     /etc/init.d/cobblerd start > /dev/null 2>&1
+-    /etc/init.d/httpd restart > /dev/null 2>&1
++    /etc/init.d/nginx restart > /dev/null 2>&1
+ fi
+ %preun
+ # before last package is removed
+@@ -191,7 +203,7 @@
+ %postun
+ # after last package is removed
+ if (( $1 == 0 )); then
+-    /etc/init.d/httpd condrestart > /dev/null 2>&1
++    /etc/init.d/nginx condrestart > /dev/null 2>&1
+ fi
+ %endif
+ 
+@@ -219,7 +231,6 @@
+ %doc AUTHORS README.md docs/README.openvz docs/README.mysql
+ %config(noreplace) %{_sysconfdir}/cobbler
+ %config(noreplace) %{_sysconfdir}/logrotate.d/cobblerd
+-%config(noreplace) /etc/httpd/conf.d/cobbler.conf
+ %{_bindir}/cobbler
+ %{_bindir}/cobbler-ext-nodes
+ %{_bindir}/cobblerd
+@@ -241,10 +252,13 @@
+ %files -n cobbler-web
+ %license COPYING
+ %doc AUTHORS README.md
+-%config(noreplace) /etc/httpd/conf.d/cobbler_web.conf
+-%attr(-,apache,apache) /usr/share/cobbler/web
+-%dir %attr(700,apache,root) /var/lib/cobbler/webui_sessions
+-%attr(-,apache,apache) /var/www/cobbler_webui_content/
++%attr(-,nginx,nginx) /usr/share/cobbler/web
++%dir %attr(700,nginx,root) /var/lib/cobbler/webui_sessions
++%attr(-,nginx,nginx) /var/www/cobbler_webui_content/
++# configuration
++%config(noreplace) /etc/nginx/conf.d/cobbler.conf
++%config(noreplace) %attr(644,nginx,nginx) /etc/uwsgi.d/cobbler-svc.ini
++%config(noreplace) %attr(644,nginx,nginx) /etc/uwsgi.d/cobbler-web.ini
+ 
+ %files -n koan
+ %license COPYING
